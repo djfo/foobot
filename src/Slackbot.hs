@@ -13,8 +13,11 @@ import           Slackbot.Message
 import           Control.Lens       ((&), (.~), (^.))
 import           Control.Monad      (forever, void)
 import           Data.Aeson
+import qualified Data.ByteString.Lazy    as LBS
 import           Data.Text          (Text)
 import qualified Data.Text          as T
+import qualified Data.Text.Encoding as T
+import qualified Data.Text.IO       as T
 import           Network.URI
 import           Network.WebSockets
 import           Network.Wreq       (defaults, getWith, param, responseBody)
@@ -59,8 +62,10 @@ makeClientApp bot conn = do
           Nothing ->
             putStrLn ">>> could not parse message text"
       Just IncomingHello -> putStrLn "HELLO"
-      _ ->
-        putStrLn ">>> unknown incoming message format"
+      _ -> do
+        putStrLn ">>> unhandled message:"
+        putStr ">>> "
+        T.putStrLn . T.decodeUtf8 . LBS.toStrict $ message
 
   sendClose conn ("Bye!" :: Text)
 
