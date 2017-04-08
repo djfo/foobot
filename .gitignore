@@ -1,0 +1,9 @@
+# vim
+*.swp
+*.swo
+
+# stack
+.stack-work
+
+# macOS
+.DS_Store
