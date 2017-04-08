@@ -18,6 +18,7 @@ cabal-version:       >=1.10
 executable foobot
   main-is:             Main.hs
   -- other-modules:       
+  ghc-options:         -Wall
   other-extensions:    OverloadedStrings
   build-depends:
       base >=4.9 && <4.10
