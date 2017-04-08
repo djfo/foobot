@@ -58,6 +58,7 @@ makeClientApp bot conn = do
             mapM_ (sendTextData conn . encode) out
           Nothing ->
             putStrLn ">>> could not parse message text"
+      Just IncomingHello -> putStrLn "HELLO"
       _ ->
         putStrLn ">>> unknown incoming message format"
 
@@ -110,9 +111,9 @@ instance FromJSON User where
         <*> v .: "real_name"
 
 data Incoming
-  = IncomingMessage {
-    imType    :: Text
-  , imTS      :: Text -- timestamp
+  = IncomingHello
+  | IncomingMessage {
+    imTS      :: Text -- timestamp
   , imUser    :: Text
   , imText    :: Text
   , imChannel :: Text
@@ -121,12 +122,17 @@ data Incoming
 
 instance FromJSON Incoming where
   parseJSON =
-    withObject "IncomingMessage" $ \v -> IncomingMessage
-      <$> v .: "type"
-      <*> v .: "ts"
-      <*> v .: "user"
-      <*> v .: "text"
-      <*> v .: "channel"
+    withObject "Incoming" $ \v -> do
+      type_ <- v .: "type"
+      case type_ :: Text of
+        "hello" -> return IncomingHello
+        "message" ->
+          IncomingMessage
+            <$> v .: "ts"
+            <*> v .: "user"
+            <*> v .: "text"
+            <*> v .: "channel"
+        _ -> fail "unknown message type"
 
 data Outgoing
   = OutgoingMessage {
