@@ -5,12 +5,16 @@ module Main where
 import           Slackbot
 
 import qualified Data.Text          as T
-import           System.Environment (getArgs)
+import           System.Environment (getArgs, getProgName)
 
 main :: IO ()
 main = do
-  [token] <- getArgs
-  runSlackbot token echo
+  args <- getArgs
+  case args of
+    (token : _) -> runSlackbot token echo
+    _ -> do
+      progName <- getProgName
+      putStrLn $ "Usage: " ++ progName ++ " <token>"
 
 echo :: Slackbot ()
 echo = Slackbot f
