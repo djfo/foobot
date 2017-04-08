@@ -1,6 +1,14 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 
-module Slackbot where
+module Slackbot (
+    MessageContext(..)
+  , Slackbot(..)
+  , runSlackbot
+  , Outgoing(..)
+  , module Slackbot.Message
+  ) where
+
+import           Slackbot.Message
 
 import           Control.Lens       ((&), (.~), (^.))
 import           Control.Monad      (forever, void)
@@ -10,8 +18,6 @@ import qualified Data.Text          as T
 import           Network.URI
 import           Network.WebSockets
 import           Network.Wreq       (defaults, getWith, param, responseBody)
-import           Text.Parsec
-import           Text.Parsec.Text
 import           Wuss
 
 runSlackbot :: String -> Slackbot () -> IO ()
@@ -19,7 +25,7 @@ runSlackbot token slackbot = do
   let opts = defaults & param "token" .~ [T.pack token]
   r <- getWith opts  "https://slack.com/api/rtm.start"
   case decode (r ^. responseBody) of
-    Just auth@Auth{..}
+    Just Auth{..}
       | Just uri <- parseURI authUrl
       , Just (URIAuth _ host _) <- uriAuthority uri
       -> runSecureClient host 443 (uriPath uri) (makeClientApp slackbot)
@@ -45,12 +51,12 @@ makeClientApp bot conn = do
     case decode message :: Maybe Incoming of
       Just im@IncomingMessage{..} -> do
         print im
-        case parse userMessage mempty imText of
-          Right msg -> do
+        case parseMessage imText of
+          Just msg -> do
             let mc = MessageContext imChannel
             let (out, _) = slackbot bot mc () msg
             mapM_ (sendTextData conn . encode) out
-          Left _ ->
+          Nothing ->
             putStrLn ">>> could not parse message text"
       _ ->
         putStrLn ">>> unknown incoming message format"
@@ -138,58 +144,3 @@ instance ToJSON Outgoing where
       , "channel" .= omChannel
       , "text"    .= omText
       ]
-
--- * Message parsing
-
-data MessagePart
-  = Message {
-    msgText :: Text
-  }
-  | UserRef {
-    urId :: Text
-  }
-  | ChannelRef {
-    crId   :: Text
-  , crName :: Text
-  }
-  | UrlRef {
-    crUrl :: Text
-  }
-  deriving (Eq, Show)
-
-userMessage :: Parser [MessagePart]
-userMessage =
-    many1 $ msg <|> ref
-  where
-    msg = Message . T.pack <$> many1 (noneOf "<")
-
-ref :: Parser MessagePart
-ref = try userRef <|> try channelRef <|> urlRef
-
--- Example: <@U4WLZM16J>
-userRef :: Parser MessagePart
-userRef = do
-  char '<'
-  char '@'
-  i <- T.pack <$> many1 alphaNum
-  char '>'
-  return $ UserRef $ i
-
--- Example: <#C4WLY8BT8|random>
-channelRef :: Parser MessagePart
-channelRef = do
-  char '<'
-  char '#'
-  i <- T.pack <$> many1 alphaNum
-  char '|'
-  n <- T.pack <$> many1 alphaNum
-  char '>'
-  return $ ChannelRef i n
-
--- Example: <http://www.google.at>
-urlRef :: Parser MessagePart
-urlRef = do
-  char '<'
-  url <- T.pack <$> many1 (noneOf ">")
-  char '>'
-  return $ UrlRef url
