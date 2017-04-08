@@ -15,11 +15,11 @@ build-type:          Simple
 extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
-executable foobot
-  main-is:             Main.hs
-  -- other-modules:       
-  ghc-options:         -Wall
+library
+  exposed-modules:
+      Main
   other-extensions:    OverloadedStrings
+  ghc-options:        -Wall
   build-depends:
       base >=4.9 && <4.10
     , text >=1.2 && <1.3
@@ -30,5 +30,11 @@ executable foobot
     , lens >=4.15.1 && <4.16
     , parsec >=3.1.11 && <3.2
     , network-uri >=2.6.1.0 && <2.7
+
+executable foobot
+  main-is:             Main.hs
+  ghc-options:         -Wall
+  build-depends:
+      text >=1.2 && <1.3
   hs-source-dirs:      src
   default-language:    Haskell2010
