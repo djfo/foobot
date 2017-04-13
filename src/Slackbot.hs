@@ -5,6 +5,8 @@ module Slackbot (
   , Slackbot(..)
   , runSlackbot
   , Outgoing(..)
+  , Auth(..)
+  , Self(..)
   , module Slackbot.Message
   ) where
 
@@ -29,10 +31,13 @@ runSlackbot token context slackbot = do
   let opts = defaults & param "token" .~ [T.pack token]
   r <- getWith opts  "https://slack.com/api/rtm.start"
   case decode (r ^. responseBody) of
-    Just Auth{..}
+    Just auth@Auth{..}
       | Just uri <- parseURI authUrl
       , Just (URIAuth _ host _) <- uriAuthority uri
-      -> runSecureClient host 443 (uriPath uri) (makeClientApp context slackbot)
+      ->
+        do
+          print auth
+          runSecureClient host 443 (uriPath uri) (makeClientApp auth context slackbot)
     _ -> putStrLn "error"  
 
 newtype Slackbot c
@@ -42,12 +47,13 @@ newtype Slackbot c
 
 data MessageContext =
   MessageContext {
-    mcChannel :: Text
+    mcAuth    :: Auth
+  , mcChannel :: Text
   }
-  deriving (Eq, Show)
+  deriving (Show)
 
-makeClientApp :: c -> Slackbot c -> ClientApp ()
-makeClientApp context bot conn = do
+makeClientApp :: Auth -> c -> Slackbot c -> ClientApp ()
+makeClientApp auth context bot conn = do
   putStrLn "Connected!"
 
   v <- newMVar context
@@ -59,7 +65,7 @@ makeClientApp context bot conn = do
         print im
         case parseMessage imText of
           Just msg -> do
-            let mc = MessageContext imChannel
+            let mc = MessageContext auth imChannel
             ctx <- takeMVar v
             let (out, ctx') = slackbot bot mc ctx msg
             putMVar v ctx'
@@ -76,7 +82,8 @@ makeClientApp context bot conn = do
 
 data Auth
   = Auth {
-    authChannels :: [Channel]
+    authSelf     :: Self
+  , authChannels :: [Channel]
   , authUsers    :: [User]
   , authUrl      :: String
   }
@@ -86,9 +93,24 @@ instance FromJSON Auth where
   parseJSON =
     withObject "Auth" $ \v ->
       Auth
-        <$> v .: "channels"
+        <$> v .: "self"
+        <*> v .: "channels"
         <*> v .: "users"
         <*> v .: "url"
+
+data Self
+  = Self {
+    selfId   :: Text
+  , selfName :: Text
+  }
+  deriving (Eq, Show)
+
+instance FromJSON Self where
+  parseJSON =
+    withObject "Self" $ \v ->
+      Self
+        <$> v .: "id"
+        <*> v .: "name"
 
 data Channel
   = Channel {

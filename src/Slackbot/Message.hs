@@ -62,3 +62,10 @@ urlRef = do
   url <- T.pack <$> many1 (noneOf ">")
   char '>'
   return $ UrlRef url
+
+addresses :: Message -> [Text] -> Bool
+addresses m users = not . null . filter p $ m
+  where
+    p (UserRef u) | u `elem` users = True
+                  | otherwise      = False
+    p _                            = False
