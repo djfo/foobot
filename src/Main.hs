@@ -11,7 +11,7 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    (token : _) -> runSlackbot token echo
+    (token : _) -> runSlackbot token () echo
     _ -> do
       progName <- getProgName
       putStrLn $ "Usage: " ++ progName ++ " <token>"

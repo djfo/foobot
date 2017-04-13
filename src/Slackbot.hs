@@ -10,28 +10,29 @@ module Slackbot (
 
 import           Slackbot.Message
 
-import           Control.Lens       ((&), (.~), (^.))
-import           Control.Monad      (forever, void)
+import           Control.Concurrent   (newMVar, putMVar, takeMVar)
+import           Control.Lens         ((&), (.~), (^.))
+import           Control.Monad        (forever, void)
 import           Data.Aeson
-import qualified Data.ByteString.Lazy    as LBS
-import           Data.Text          (Text)
-import qualified Data.Text          as T
-import qualified Data.Text.Encoding as T
-import qualified Data.Text.IO       as T
+import qualified Data.ByteString.Lazy as LBS
+import           Data.Text            (Text)
+import qualified Data.Text            as T
+import qualified Data.Text.Encoding   as T
+import qualified Data.Text.IO         as T
 import           Network.URI
 import           Network.WebSockets
-import           Network.Wreq       (defaults, getWith, param, responseBody)
+import           Network.Wreq         (defaults, getWith, param, responseBody)
 import           Wuss
 
-runSlackbot :: String -> Slackbot () -> IO ()
-runSlackbot token slackbot = do
+runSlackbot :: String -> c -> Slackbot c -> IO ()
+runSlackbot token context slackbot = do
   let opts = defaults & param "token" .~ [T.pack token]
   r <- getWith opts  "https://slack.com/api/rtm.start"
   case decode (r ^. responseBody) of
     Just Auth{..}
       | Just uri <- parseURI authUrl
       , Just (URIAuth _ host _) <- uriAuthority uri
-      -> runSecureClient host 443 (uriPath uri) (makeClientApp slackbot)
+      -> runSecureClient host 443 (uriPath uri) (makeClientApp context slackbot)
     _ -> putStrLn "error"  
 
 newtype Slackbot c
@@ -45,9 +46,11 @@ data MessageContext =
   }
   deriving (Eq, Show)
 
-makeClientApp :: Slackbot () -> ClientApp ()
-makeClientApp bot conn = do
+makeClientApp :: c -> Slackbot c -> ClientApp ()
+makeClientApp context bot conn = do
   putStrLn "Connected!"
+
+  v <- newMVar context
 
   void . forever $ do
     message <- receiveData conn
@@ -57,7 +60,9 @@ makeClientApp bot conn = do
         case parseMessage imText of
           Just msg -> do
             let mc = MessageContext imChannel
-            let (out, _) = slackbot bot mc () msg
+            ctx <- takeMVar v
+            let (out, ctx') = slackbot bot mc ctx msg
+            putMVar v ctx'
             mapM_ (sendTextData conn . encode) out
           Nothing ->
             putStrLn ">>> could not parse message text"
