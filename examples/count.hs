@@ -11,15 +11,16 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    (token : _) -> runSlackbot token () echo
+    token : _ -> runSlackbot token 0 count
     _ -> do
       progName <- getProgName
       putStrLn $ "Usage: " ++ progName ++ " <token>"
 
-echo :: Slackbot ()
-echo = Slackbot f
+count :: Slackbot Int
+count = Slackbot f
   where
-    f :: MessageContext -> () -> [MessagePart] -> ([Outgoing], ())
-    f MessageContext{..} context message = ([om], context)
+    f :: MessageContext -> Int -> [MessagePart] -> ([Outgoing], Int)
+    f MessageContext{..} n message = ([om], n')
       where
-        om = OutgoingMessage 1 "message" mcChannel (T.pack . show $ message) 
+        om = OutgoingMessage 1 "message" mcChannel (T.pack . show $ n')
+        n' = n + 1
