@@ -48,3 +48,11 @@ executable count
   ghc-options:         -Wall
   build-depends:
   default-language:    Haskell2010
+
+executable hangman
+  main-is:            hangman.hs
+  hs-source-dirs:     examples
+  ghc-options:        -Wall
+  build-depends:
+      random >=1.1 && <1.2
+  default-language:   Haskell2010
