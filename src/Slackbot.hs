@@ -49,6 +49,7 @@ data MessageContext =
   MessageContext {
     mcAuth    :: Auth
   , mcChannel :: Text
+  , mcUser    :: Text
   }
   deriving (Show)
 
@@ -65,7 +66,7 @@ makeClientApp auth context bot conn = do
         print im
         case parseMessage imText of
           Just msg -> do
-            let mc = MessageContext auth imChannel
+            let mc = MessageContext auth imChannel imUser
             ctx <- takeMVar v
             let (out, ctx') = slackbot bot mc ctx msg
             putMVar v ctx'
