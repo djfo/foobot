@@ -73,8 +73,10 @@ makeClientApp auth context bot conn = do
           Nothing ->
             putStrLn ">>> could not parse message text"
       Just IncomingHello -> putStrLn "HELLO"
-      _ -> do
-        putStrLn ">>> unhandled message:"
+      Just ReconnectUrl{..} -> return ()
+      Just PresenceChange{..} -> return ()
+      Nothing -> do
+        putStrLn ">>> unknown message type:"
         putStr ">>> "
         T.putStrLn . T.decodeUtf8 . LBS.toStrict $ message
 
@@ -150,6 +152,13 @@ data Incoming
   , imText    :: Text
   , imChannel :: Text
   }
+  | PresenceChange {
+    pcPresence :: Text
+  , pcUser     :: Text
+  }
+  | ReconnectUrl {
+    ruUrl :: Text
+  }
   deriving (Show)
 
 instance FromJSON Incoming where
@@ -164,6 +173,12 @@ instance FromJSON Incoming where
             <*> v .: "user"
             <*> v .: "text"
             <*> v .: "channel"
+        "presence_change" ->
+          PresenceChange
+            <$> v .: "presence"
+            <*> v .: "user"
+        "reconnect_url" ->
+          ReconnectUrl <$> v .: "url"
         _ -> fail "unknown message type"
 
 data Outgoing
